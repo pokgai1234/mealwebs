@@ -19,6 +19,8 @@ export default function ShoppingListPage() {
     shoppingList = [],
     updateShoppingListItemChecked,
     selectedMeals = [],
+    addExtraItem,
+    removeExtraItem,
     extraShoppingItems = [],
     toggleGroupChecked,
   } = useMealPlan();

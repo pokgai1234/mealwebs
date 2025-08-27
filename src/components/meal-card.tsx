@@ -4,7 +4,7 @@
 import type { Meal } from '@/types/meal';
 import Image from 'next/image';
 import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Flame, Dumbbell, Clock } from 'lucide-react';
+import { Flame, Dumbbell } from 'lucide-react';
 
 interface MealCardProps {
   meal: Meal;
