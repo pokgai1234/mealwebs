@@ -21,7 +21,7 @@ export default function AppHeader() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center justify-between">
         <Link href="/" className="flex items-center space-x-2">
-          <Image src="https://sdmntprnortheu.oaiusercontent.com/files/00000000-4100-61f4-9d90-73af96a1c27d/raw?se=2025-08-27T10%3A52%3A19Z&sp=r&sv=2024-08-04&sr=b&scid=c4f7f100-2bf3-5615-aed0-e9cfc8cdf561&skoid=0b778285-7b0b-4cdc-ac3b-fb93e8c3686f&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-08-27T00%3A00%3A03Z&ske=2025-08-28T00%3A00%3A03Z&sks=b&skv=2024-08-04&sig=mHZNgS5xWfpHm5bUM3mXQbo6EFTruaJyMicShFPZ6ug%3D" alt="proti logo" width={80} height={40} />
+          <Image src="https://iooutwzkflsjrsnclhap.supabase.co/storage/v1/object/public/image/ChatGPT%20Image%20Aug%2027,%202025,%2010_41_18%20PM.png" alt="proti logo" width={80} height={40} data-ai-hint="logo" />
         </Link>
         <nav className="flex items-center space-x-2">
            <Button asChild variant="ghost" size="sm">

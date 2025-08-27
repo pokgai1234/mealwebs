@@ -167,11 +167,11 @@ export default function MealDetailPage() {
                   </div>
                 )}
                 <ol className="list-decimal pl-5 space-y-2">
-                  {meal.cookingSteps.map((step, index) => (
+                  {meal.cookingSteps?.map((step, index) => (
                     <li key={index}>{step}</li>
                   ))}
                 </ol>
-                 {!embedUrl && meal.cookingSteps.length === 0 && (
+                 {!embedUrl && (!meal.cookingSteps || meal.cookingSteps.length === 0) && (
                     <p className="text-muted-foreground">No cooking steps or video available for this meal.</p>
                 )}
               </TabsContent>

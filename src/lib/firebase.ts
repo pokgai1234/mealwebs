@@ -1,8 +1,10 @@
 // src/lib/firebase.ts
-import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-// import { getAuth, type Auth } from 'firebase/auth'; // Firebase Auth is no longer primary
+// This file is being kept for potential future use with other Firebase services,
+// but it is not actively used for authentication or core data fetching.
+// Supabase is handling the primary database operations.
 
-// Your web app's Firebase configuration is now read from environment variables
+import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -10,41 +12,37 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, // Optional
 };
 
 let app: FirebaseApp | undefined = undefined;
-// let auth: Auth | null = null; // Firebase Auth is no longer primary
 let firebaseError: string | null = null;
 
-// Check if Firebase is intended to be used for services other than Auth
-const essentialFirebaseKeysForOtherServices = [
+const essentialFirebaseKeys = [
   firebaseConfig.apiKey,
   firebaseConfig.projectId
 ].every(Boolean);
 
-
-if (essentialFirebaseKeysForOtherServices) {
+if (essentialFirebaseKeys) {
   if (!getApps().length) {
     try {
       app = initializeApp(firebaseConfig);
-      // auth = getAuth(app); // Firebase Auth is no longer primary
-      console.log("Firebase app initialized for non-auth services (if any). Authentication is handled by Supabase.");
+      console.log("Firebase app initialized for non-auth services (if any).");
     } catch (error: any) {
-      console.error("Error initializing Firebase app for non-auth services:", error);
-      firebaseError = `Error initializing Firebase for non-auth services: ${error.message}.`;
+      console.error("Error initializing Firebase app:", error);
+      firebaseError = `Error initializing Firebase: ${error.message}.`;
       app = undefined;
     }
   } else {
     app = getApps()[0];
-    // auth = getAuth(app); // Firebase Auth is no longer primary
   }
 } else {
-  firebaseError = `Firebase configuration is missing for non-auth services. If Firebase is not used for other services, this is expected. Authentication is handled by Supabase. Missing keys for other services: ${Object.entries(firebaseConfig).filter(([key,value]) => !value && (key === 'apiKey' || key === 'projectId')).map(([key])=> key).join(', ')}`;
-  console.warn(firebaseError);
+  const message = "Firebase configuration is incomplete. Firebase services other than Auth may not work.";
+  console.warn(message);
+  // We don't set a blocking error here, as the primary data source is Supabase.
+  // firebaseError = message; 
 }
 
-// Export auth as null or a non-functional placeholder if other parts of the app expect it
+// Export auth as null since it's handled by Supabase now.
 const auth = null;
 
 export { auth, firebaseError, app as firebaseApp };

@@ -19,7 +19,7 @@ export interface Meal {
   calories: number;
   protein: number;
   ingredients: Ingredient[];
-  cookingSteps: string[];
+  cookingSteps: string[] | null;
   estimatedTime: string;
   estimatedPrice: number;
 }
