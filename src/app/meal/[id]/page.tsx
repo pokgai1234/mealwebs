@@ -3,14 +3,14 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { getMealById } from '@/lib/meal-data';
 import type { Meal } from '@/types/meal';
 import { useMealPlan } from '@/context/meal-plan-context';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Share2, Flame, Dumbbell, Clock, PlusCircle, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Share2, Flame, Dumbbell, PlusCircle, ShoppingCart } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
 export default function MealDetailPage() {
@@ -23,17 +23,17 @@ export default function MealDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || typeof id !== 'string') return;
 
     const fetchMeal = async () => {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('meals')
-        .select(`*, ingredients:ingredients(*)`)
-        .eq('id', id)
-        .single();
-
-      if (error || !data) {
+      try {
+        const mealData = await getMealById(id);
+        if (!mealData) {
+          throw new Error('Meal not found');
+        }
+        setMeal(mealData);
+      } catch (error) {
         console.error('Error fetching meal:', error);
         toast({
           title: 'Error',
@@ -41,29 +41,6 @@ export default function MealDetailPage() {
           variant: 'destructive',
         });
         router.push('/explore');
-      } else {
-        const formattedMeal: Meal = {
-          id: data.id.toString(),
-          name: data.name,
-          description: data.description,
-          imageUrl: data.image_url,
-          imageHint: data.image_hint,
-          videoUrl: data.video_url,
-          calories: data.calories,
-          protein: data.protein,
-          estimatedTime: data.estimated_time,
-          estimatedPrice: data.estimated_price,
-          ingredients: data.ingredients.map((ing: any) => ({
-            id: ing.id,
-            name: ing.name,
-            quantity: ing.quantity,
-            category: ing.category,
-            shoppingLink: ing.shopping_link,
-            meal_id: ing.meal_id
-          })),
-          cookingSteps: data.cooking_steps || [],
-        };
-        setMeal(formattedMeal);
       }
       setIsLoading(false);
     };
@@ -76,7 +53,7 @@ export default function MealDetailPage() {
       try {
         await navigator.share({
           title: meal.name,
-          text: `Check out this delicious recipe: ${meal.name}. Find it on NutriPlan!`,
+          text: `Check out this delicious recipe: ${meal.name}. Find it on proti!`,
           url: window.location.href,
         });
         toast({ title: 'Recipe shared successfully!' });

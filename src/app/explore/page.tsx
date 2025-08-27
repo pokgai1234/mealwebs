@@ -9,7 +9,7 @@ import { ShoppingCart, Loader2 } from 'lucide-react';
 import { useMealPlan } from '@/context/meal-plan-context';
 import { useEffect, useState } from 'react';
 import type { Meal } from '@/types/meal';
-import { supabase } from '@/lib/supabase';
+import { getAllMeals } from '@/lib/meal-data';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ExplorePage() {
@@ -25,45 +25,17 @@ export default function ExplorePage() {
     
     const fetchMeals = async () => {
       setIsLoading(true);
-      const { data: mealsData, error } = await supabase
-        .from('meals')
-        .select(`
-          *,
-          ingredients:ingredients(*)
-        `);
-
-      if (error) {
-        console.error('Error fetching meals:', error);
-        toast({
+      try {
+        const mealsData = await getAllMeals();
+        setMeals(mealsData);
+      } catch (error) {
+         console.error('Error fetching meals:', error);
+         toast({
           title: 'Error Fetching Meals',
-          description: 'Could not load recipes from the database. Please try again later.',
+          description: 'Could not load recipes. Please try again later.',
           variant: 'destructive'
         });
         setMeals([]);
-      } else {
-        // Map data from snake_case to camelCase
-        const formattedMeals = mealsData.map(meal => ({
-          id: meal.id.toString(),
-          name: meal.name,
-          description: meal.description,
-          imageUrl: meal.image_url,
-          imageHint: meal.image_hint,
-          videoUrl: meal.video_url,
-          calories: meal.calories,
-          protein: meal.protein,
-          estimatedTime: meal.estimated_time,
-          estimatedPrice: meal.estimated_price,
-          ingredients: meal.ingredients.map((ing: any) => ({
-            id: ing.id,
-            name: ing.name,
-            quantity: ing.quantity,
-            category: ing.category,
-            shoppingLink: ing.shopping_link,
-            meal_id: ing.meal_id
-          })),
-          cookingSteps: meal.cooking_steps || [], // Assuming cooking_steps might not exist
-        }));
-        setMeals(formattedMeals);
       }
       setIsLoading(false);
     };
