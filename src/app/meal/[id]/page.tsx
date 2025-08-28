@@ -186,14 +186,6 @@ export default function MealDetailPage() {
                 <PlusCircle className="mr-2" />
                 {isAlreadyInPlan ? 'Added to Plan' : 'Add to Plan'}
             </Button>
-            {isAlreadyInPlan && (
-                <Button size="lg" variant="secondary" className="w-full" asChild>
-                    <a href="/shopping-list">
-                        <ShoppingCart className="mr-2" />
-                        View List
-                    </a>
-                </Button>
-            )}
          </div>
        </div>
     </div>

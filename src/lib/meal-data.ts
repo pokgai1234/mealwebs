@@ -1,8 +1,14 @@
 // src/lib/meal-data.ts
 import { supabase, supabaseInitializationError } from './supabase';
 import type { Meal } from '@/types/meal';
+import { Database } from '@/types/supabase';
 
 // This file now uses Supabase to fetch meal data.
+
+type MealFromDB = Database['public']['Tables']['meals']['Row'];
+type IngredientFromDB = Database['public']['Tables']['ingredients']['Row'];
+type MealWithIngredients = MealFromDB & { ingredients: IngredientFromDB[] };
+
 
 export async function getAllMeals(): Promise<Meal[]> {
   if (!supabase) {
@@ -14,23 +20,9 @@ export async function getAllMeals(): Promise<Meal[]> {
   const { data, error } = await supabase
     .from('meals')
     .select(`
-      id,
-      name,
-      description,
-      image_url,
-      image_hint,
-      video_url,
-      calories,
-      protein,
-      estimated_time,
-      estimated_price,
+      *,
       ingredients (
-        id,
-        meal_id,
-        name,
-        quantity,
-        category,
-        shopping_link
+        *
       )
     `);
 
@@ -39,22 +31,25 @@ export async function getAllMeals(): Promise<Meal[]> {
     throw new Error(`Failed to fetch meals: ${error.message}`);
   }
   
-  const meals: Meal[] = data.map((meal: any) => ({
-    id: meal.id,
+  const meals: Meal[] = (data as MealWithIngredients[]).map((meal) => ({
+    id: String(meal.id),
     name: meal.name,
-    description: meal.description,
-    imageUrl: meal.image_url,
-    imageHint: meal.image_hint,
-    videoUrl: meal.video_url,
-    calories: meal.calories,
-    protein: meal.protein,
-    estimatedTime: meal.estimated_time,
-    estimatedPrice: meal.estimated_price,
-    ingredients: meal.ingredients.map((ing: any) => ({
+    description: meal.description ?? '',
+    imageUrl: meal.image_url ?? '',
+    imageHint: meal.image_hint ?? '',
+    videoUrl: meal.video_url ?? null,
+    calories: meal.calories ?? 0,
+    protein: meal.protein ?? 0,
+    estimatedTime: meal.estimated_time ?? 'N/A',
+    estimatedPrice: meal.estimated_price ?? 0,
+    ingredients: meal.ingredients.map((ing) => ({
       ...ing,
+      category: ing.category as 'main' | 'seasoning' ?? 'main',
       shoppingLink: ing.shopping_link,
+      meal_id: ing.meal_id ?? 0,
+      quantity: ing.quantity ?? '',
     })),
-    cookingSteps: meal.cookingSteps || []
+    cookingSteps: [] // No cooking_steps column
   }));
 
   console.log(`Successfully fetched ${meals.length} meals.`);
@@ -71,28 +66,13 @@ export async function getMealById(id: string): Promise<Meal | null> {
   const { data, error } = await supabase
     .from('meals')
     .select(`
-      id,
-      name,
-      description,
-      image_url,
-      image_hint,
-      video_url,
-      calories,
-      protein,
-      estimated_time,
-      estimated_price,
-      cooking_steps,
+      *,
       ingredients (
-        id,
-        meal_id,
-        name,
-        quantity,
-        category,
-        shopping_link
+        *
       )
     `)
     .eq('id', id)
-    .single(); // .single() returns one object instead of an array
+    .single();
 
   if (error) {
     console.error(`Error fetching meal with id ${id}:`, error.message);
@@ -105,23 +85,27 @@ export async function getMealById(id: string): Promise<Meal | null> {
   
   if (data) {
     console.log(`Successfully fetched meal: ${data.name}`);
+    const mealWithIngredients = data as MealWithIngredients;
     
     const meal: Meal = {
-        id: data.id,
-        name: data.name,
-        description: data.description,
-        imageUrl: data.image_url,
-        imageHint: data.image_hint,
-        videoUrl: data.video_url,
-        calories: data.calories,
-        protein: data.protein,
-        estimatedTime: data.estimated_time,
-        estimatedPrice: data.estimated_price,
-        cookingSteps: data.cooking_steps || [],
-        ingredients: data.ingredients.map((ing: any) => ({
+        id: String(mealWithIngredients.id),
+        name: mealWithIngredients.name,
+        description: mealWithIngredients.description ?? '',
+        imageUrl: mealWithIngredients.image_url ?? '',
+        imageHint: mealWithIngredients.image_hint ?? '',
+        videoUrl: mealWithIngredients.video_url ?? null,
+        calories: mealWithIngredients.calories ?? 0,
+        protein: mealWithIngredients.protein ?? 0,
+        estimatedTime: mealWithIngredients.estimated_time ?? 'N/A',
+        estimatedPrice: mealWithIngredients.estimated_price ?? 0,
+        ingredients: mealWithIngredients.ingredients.map((ing) => ({
             ...ing,
-            shoppingLink: ing.shopping_link
-        }))
+            category: ing.category as 'main' | 'seasoning' ?? 'main',
+            shoppingLink: ing.shopping_link,
+            meal_id: ing.meal_id ?? 0,
+            quantity: ing.quantity ?? ''
+        })),
+        cookingSteps: [] // No cooking_steps column
     };
     return meal;
   }
