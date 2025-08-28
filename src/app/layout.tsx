@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
 import type { ReactNode } from 'react';
 import AppHeader from '@/components/app-header';
+import Script from 'next/script';
 
 
 const geistSans = Geist({
@@ -33,6 +34,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+       <head>
+        <Script async src="https://www.googletagmanager.com/gtag/js?id=G-5L5VK0643K"></Script>
+        <Script id="google-tag-manager">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+
+            gtag('config', 'G-5L5VK0643K');
+          `}
+        </Script>
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <MealPlanProvider>
           <div className="flex flex-col min-h-screen">
