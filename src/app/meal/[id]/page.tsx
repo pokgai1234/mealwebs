@@ -124,7 +124,7 @@ export default function MealDetailPage() {
 
             <div className="flex items-center justify-around text-center border-t border-b border-border py-4 my-6">
               <div className="flex flex-col items-center">
-                <Flame className="w-6 h-6 text-accent mb-1" />
+                <Flame className="w-6 h-6 text-orange-500 mb-1" />
                 <span className="font-bold">{meal.calories}</span>
                 <span className="text-xs text-muted-foreground">Kcal</span>
               </div>

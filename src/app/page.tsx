@@ -135,7 +135,7 @@ export default function LandingPage() {
             layout="fill"
             objectFit="cover"
             quality={30}
-            className="opacity-30 brightness-150"
+            className="opacity-40 brightness-150"
             data-ai-hint="healthy meal mediterranean diet"
           />
         </div>

@@ -30,7 +30,7 @@ export function MealCard({ meal }: MealCardProps) {
       <CardFooter className="p-4 border-t mt-auto bg-card">
            <div className="flex justify-between items-center text-sm text-muted-foreground w-full">
              <span className="flex items-center font-semibold">
-                <Flame className="w-4 h-4 mr-1.5 text-accent" aria-hidden="true" />
+                <Flame className="w-4 h-4 mr-1.5 text-orange-500" aria-hidden="true" />
                  {meal.calories} Kcal
               </span>
              <span className="flex items-center font-semibold">
