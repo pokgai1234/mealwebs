@@ -13,33 +13,35 @@ export interface ShoppingListItem extends Ingredient {
   checked?: boolean;
 }
 
-interface MealPlanContextType {
+interface MealPlanState {
   selectedMeals: Meal[];
+  extraShoppingItems: ShoppingListItem[];
+  shoppingList: ShoppingListItem[];
+  selectedStore: 'coles' | 'woolworths' | 'both' | null;
+  deliveryTime: 'today' | 'tomorrow' | null;
+  deliveryAddress: string;
+  isOrderComplete: boolean;
+  activeShoppingRequestId: string | null;
+  shoppingTaskResult: OrchestratorResult | null;
+}
+
+interface MealPlanContextType extends MealPlanState {
   addMeal: (meal: Meal) => void;
-  removeMeal: (mealId: string) => void; // To remove a whole meal from the plan
-  
-  shoppingList: ShoppingListItem[]; // This will be the combined list for UI display
+  removeMeal: (mealId: string) => void;
   
   updateShoppingListItemChecked: (originalIndexInShoppingList: number, checked: boolean) => void;
   toggleGroupChecked: (mealId: string) => void;
 
   addExtraItem: (item: Omit<ShoppingListItem, 'id' | 'mealId' | 'mealName' | 'category' | 'checked' | 'shoppingLink'>) => void;
-  removeExtraItem: (itemId: string) => void; // Remove extra item by its unique ID
+  removeExtraItem: (itemId: string) => void;
 
-  // Order details state...
-  selectedStore: 'coles' | 'woolworths' | 'both' | null;
   setSelectedStore: Dispatch<SetStateAction<'coles' | 'woolworths' | 'both' | null>>;
-  deliveryTime: 'today' | 'tomorrow' | null;
   setDeliveryTime: Dispatch<SetStateAction<'today' | 'tomorrow' | null>>;
-  deliveryAddress: string;
   setDeliveryAddress: Dispatch<SetStateAction<string>>;
-  isOrderComplete: boolean;
   completeOrder: () => void;
   resetOrder: () => void;
 
-  activeShoppingRequestId: string | null;
   setActiveShoppingRequestId: Dispatch<SetStateAction<string | null>>;
-  shoppingTaskResult: OrchestratorResult | null;
   setShoppingTaskResult: Dispatch<SetStateAction<OrchestratorResult | null>>;
 }
 
@@ -61,174 +63,221 @@ const standardizeIngredientName = (name: string): string => {
   return standardized;
 };
 
+const defaultState: MealPlanState = {
+    selectedMeals: [],
+    extraShoppingItems: [],
+    shoppingList: [],
+    selectedStore: null,
+    deliveryTime: null,
+    deliveryAddress: '',
+    isOrderComplete: false,
+    activeShoppingRequestId: null,
+    shoppingTaskResult: null,
+};
+
+const LOCAL_STORAGE_KEY = 'protiMealPlan';
+
 export const MealPlanProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [selectedMeals, setSelectedMeals] = useState<Meal[]>([]);
-  const [extraShoppingItems, setExtraShoppingItems] = useState<ShoppingListItem[]>([]);
-  const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]); // Final list for UI
+  const [state, setState] = useState<MealPlanState>(defaultState);
 
-  const [selectedStore, setSelectedStore] = useState<'coles' | 'woolworths' | 'both' | null>(null);
-  const [deliveryTime, setDeliveryTime] = useState<'today' | 'tomorrow' | null>(null);
-  const [deliveryAddress, setDeliveryAddress] = useState<string>('');
-  const [isOrderComplete, setIsOrderComplete] = useState<boolean>(false);
-  const [activeShoppingRequestId, setActiveShoppingRequestId] = useState<string | null>(null);
-  const [shoppingTaskResult, setShoppingTaskResult] = useState<OrchestratorResult | null>(null);
-
-  // Effect to regenerate the shoppingList whenever selectedMeals or extraShoppingItems change
+  // Load state from localStorage on initial mount
   useEffect(() => {
-    if (isOrderComplete) {
-      if (selectedMeals.length === 0 && extraShoppingItems.length === 0) {
-        setShoppingList([]);
+    try {
+      const storedState = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (storedState) {
+        const parsedState = JSON.parse(storedState);
+        // Basic validation to ensure we don't load corrupted data
+        if (parsedState && typeof parsedState === 'object' && 'selectedMeals' in parsedState) {
+            setState(parsedState);
+        }
       }
-      return;
+    } catch (error) {
+        console.error("Failed to load state from localStorage", error);
+        // If loading fails, we proceed with the default empty state
     }
+  }, []);
 
-    const newMainIngredients: ShoppingListItem[] = [];
-    const uniqueSeasoningsMap = new Map<string, ShoppingListItem>();
-
-    selectedMeals.forEach(meal => {
-      meal.ingredients.forEach(ingredient => {
-        const existingItemInOldList = shoppingList.find(
-          (oldItem) => 
-            oldItem.name === ingredient.name && 
-            ( (ingredient.category === 'main' && oldItem.mealId === meal.id) ||
-              (ingredient.category === 'seasoning' && oldItem.mealId === 'seasonings_condiments' && standardizeIngredientName(oldItem.name) === standardizeIngredientName(ingredient.name))
-            )
-        );
-        const checkedStatus = existingItemInOldList ? existingItemInOldList.checked : false;
+  // Save state to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+    } catch (error) {
+      console.error("Failed to save state to localStorage", error);
+    }
+  }, [state]);
 
 
-        if (ingredient.category === 'main') {
-          newMainIngredients.push({
-            ...ingredient,
-            mealId: meal.id,
-            mealName: meal.name,
-            checked: checkedStatus,
-          });
-        } else { // 'seasoning'
-          const standardizedName = standardizeIngredientName(ingredient.name);
-          if (!uniqueSeasoningsMap.has(standardizedName)) {
-            uniqueSeasoningsMap.set(standardizedName, {
+  const regenerateShoppingList = useCallback((selectedMeals: Meal[], extraShoppingItems: ShoppingListItem[], oldShoppingList: ShoppingListItem[]) => {
+      const newMainIngredients: ShoppingListItem[] = [];
+      const uniqueSeasoningsMap = new Map<string, ShoppingListItem>();
+
+      selectedMeals.forEach(meal => {
+        meal.ingredients.forEach(ingredient => {
+          const existingItemInOldList = oldShoppingList.find(
+            (oldItem) => 
+              oldItem.name === ingredient.name && 
+              ( (ingredient.category === 'main' && oldItem.mealId === meal.id) ||
+                (ingredient.category === 'seasoning' && oldItem.mealId === 'seasonings_condiments' && standardizeIngredientName(oldItem.name) === standardizeIngredientName(ingredient.name))
+              )
+          );
+          const checkedStatus = existingItemInOldList ? existingItemInOldList.checked : false;
+
+          if (ingredient.category === 'main') {
+            newMainIngredients.push({
               ...ingredient,
-              id: `seasoning-${standardizedName}`,
-              name: ingredient.name,
-              mealId: 'seasonings_condiments',
-              mealName: 'Seasonings & Condiments',
+              mealId: meal.id,
+              mealName: meal.name,
               checked: checkedStatus,
             });
-          } else {
-            const currentSeasoning = uniqueSeasoningsMap.get(standardizedName)!;
-            if (checkedStatus) {
-                currentSeasoning.checked = true;
+          } else { // 'seasoning'
+            const standardizedName = standardizeIngredientName(ingredient.name);
+            if (!uniqueSeasoningsMap.has(standardizedName)) {
+              uniqueSeasoningsMap.set(standardizedName, {
+                ...ingredient,
+                id: `seasoning-${standardizedName}`,
+                name: ingredient.name,
+                mealId: 'seasonings_condiments',
+                mealName: 'Seasonings & Condiments',
+                checked: checkedStatus,
+              });
+            } else {
+              const currentSeasoning = uniqueSeasoningsMap.get(standardizedName)!;
+              if (checkedStatus) {
+                  currentSeasoning.checked = true;
+              }
+              uniqueSeasoningsMap.set(standardizedName, currentSeasoning);
             }
-             uniqueSeasoningsMap.set(standardizedName, currentSeasoning);
           }
-        }
+        });
       });
-    });
 
-    const newSeasoningsList = Array.from(uniqueSeasoningsMap.values());
-    
-    const updatedExtraShoppingItems = extraShoppingItems.map(extraItem => {
-        const existingExtra = shoppingList.find(sli => sli.id === extraItem.id && sli.mealId === 'extra');
-        return existingExtra ? { ...extraItem, checked: existingExtra.checked ?? false } : {...extraItem, checked: false};
-    });
+      const newSeasoningsList = Array.from(uniqueSeasoningsMap.values());
+      
+      const updatedExtraShoppingItems = extraShoppingItems.map(extraItem => {
+          const existingExtra = oldShoppingList.find(sli => sli.id === extraItem.id && sli.mealId === 'extra');
+          return existingExtra ? { ...extraItem, checked: existingExtra.checked ?? false } : {...extraItem, checked: false};
+      });
 
-    setShoppingList([...newMainIngredients, ...newSeasoningsList, ...updatedExtraShoppingItems]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMeals, extraShoppingItems, isOrderComplete]); 
+      return [...newMainIngredients, ...newSeasoningsList, ...updatedExtraShoppingItems];
+  }, []);
 
   const addMeal = (meal: Meal) => {
-    if (!selectedMeals.some(m => m.id === meal.id)) {
-      setSelectedMeals(prevMeals => [...prevMeals, meal]);
-    }
+    setState(prevState => {
+      if (!prevState.selectedMeals.some(m => m.id === meal.id)) {
+        const newSelectedMeals = [...prevState.selectedMeals, meal];
+        const newShoppingList = regenerateShoppingList(newSelectedMeals, prevState.extraShoppingItems, prevState.shoppingList);
+        return { ...prevState, selectedMeals: newSelectedMeals, shoppingList: newShoppingList };
+      }
+      return prevState;
+    });
   };
 
   const removeMeal = (mealIdToRemove: string) => {
-    setSelectedMeals(prevMeals => prevMeals.filter(meal => meal.id !== mealIdToRemove));
+    setState(prevState => {
+        const newSelectedMeals = prevState.selectedMeals.filter(meal => meal.id !== mealIdToRemove);
+        const newShoppingList = regenerateShoppingList(newSelectedMeals, prevState.extraShoppingItems, prevState.shoppingList);
+        return { ...prevState, selectedMeals: newSelectedMeals, shoppingList: newShoppingList };
+    });
   };
 
   const updateShoppingListItemChecked = (originalIndexInShoppingList: number, checked: boolean) => {
-    setShoppingList(prevList => {
-      const newList = [...prevList];
+    setState(prevState => {
+      const newList = [...prevState.shoppingList];
       if (newList[originalIndexInShoppingList]) {
         newList[originalIndexInShoppingList] = { ...newList[originalIndexInShoppingList], checked };
       }
-      return newList;
+      return { ...prevState, shoppingList: newList };
     });
   };
 
   const toggleGroupChecked = (mealIdToToggle: string) => {
-    setShoppingList(prevList => {
-        // Find if any item in the group is unchecked. If so, we'll check all. Otherwise, we'll uncheck all.
-        const shouldCheckAll = prevList.some(item => item.mealId === mealIdToToggle && !item.checked);
-        
-        return prevList.map(item => {
+    setState(prevState => {
+        const { shoppingList } = prevState;
+        const shouldCheckAll = shoppingList.some(item => item.mealId === mealIdToToggle && !item.checked);
+        const newShoppingList = shoppingList.map(item => {
             if (item.mealId === mealIdToToggle) {
                 return { ...item, checked: shouldCheckAll };
             }
             return item;
         });
+        return { ...prevState, shoppingList: newShoppingList };
     });
   };
 
   const addExtraItem = (item: Omit<ShoppingListItem, 'id' | 'mealId' | 'mealName' | 'category' | 'checked' | 'shoppingLink'>) => {
-    const standardizedName = standardizeIngredientName(item.name);
-    if (!extraShoppingItems.some(existing => standardizeIngredientName(existing.name) === standardizedName)) {
-      const newItem: ShoppingListItem = {
-        id: uuidv4(),
-        ...item,
-        category: 'seasoning', // Default category for extras, can be anything
-        mealId: 'extra',
-        mealName: 'Extras',
-        checked: true, // Add extra items as checked by default
-        shoppingLink: `https://www.woolworths.com.au/shop/search/products?searchTerm=${encodeURIComponent(item.name)}`
-      };
-      setExtraShoppingItems(prevExtras => [...prevExtras, newItem]);
-    }
+    setState(prevState => {
+        const standardizedName = standardizeIngredientName(item.name);
+        if (!prevState.extraShoppingItems.some(existing => standardizeIngredientName(existing.name) === standardizedName)) {
+            const newItem: ShoppingListItem = {
+                id: uuidv4(),
+                ...item,
+                category: 'seasoning',
+                mealId: 'extra',
+                mealName: 'Extras',
+                checked: true,
+                shoppingLink: `https://www.woolworths.com.au/shop/search/products?searchTerm=${encodeURIComponent(item.name)}`
+            };
+            const newExtraItems = [...prevState.extraShoppingItems, newItem];
+            const newShoppingList = regenerateShoppingList(prevState.selectedMeals, newExtraItems, prevState.shoppingList);
+            return { ...prevState, extraShoppingItems: newExtraItems, shoppingList: newShoppingList };
+        }
+        return prevState;
+    });
   };
   
   const removeExtraItem = (itemIdToRemove: string) => {
-    setExtraShoppingItems(prevExtras => prevExtras.filter(item => item.id !== itemIdToRemove));
+    setState(prevState => {
+        const newExtraItems = prevState.extraShoppingItems.filter(item => item.id !== itemIdToRemove);
+        const newShoppingList = regenerateShoppingList(prevState.selectedMeals, newExtraItems, prevState.shoppingList);
+        return { ...prevState, extraShoppingItems: newExtraItems, shoppingList: newShoppingList };
+    });
   };
 
   const completeOrder = () => {
-    setIsOrderComplete(true);
+    setState(prevState => ({ ...prevState, isOrderComplete: true }));
   };
 
   const resetOrder = () => {
-    setSelectedMeals([]);
-    setExtraShoppingItems([]);
-    setSelectedStore(null);
-    setDeliveryTime(null);
-    setDeliveryAddress('');
-    setIsOrderComplete(false);
-    setActiveShoppingRequestId(null);
-    setShoppingTaskResult(null);
+    setState(defaultState);
+     try {
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+     } catch (error) {
+        console.error("Failed to clear state from localStorage", error);
+     }
   };
+
+  const setDeliveryAddress: Dispatch<SetStateAction<string>> = (value) => {
+      setState(prevState => ({...prevState, deliveryAddress: typeof value === 'function' ? value(prevState.deliveryAddress) : value}));
+  };
+  const setDeliveryTime: Dispatch<SetStateAction<'today' | 'tomorrow' | null>> = (value) => {
+      setState(prevState => ({...prevState, deliveryTime: typeof value === 'function' ? value(prevState.deliveryTime) : value}));
+  };
+  const setSelectedStore: Dispatch<SetStateAction<'coles' | 'woolworths' | 'both' | null>> = (value) => {
+      setState(prevState => ({...prevState, selectedStore: typeof value === 'function' ? value(prevState.selectedStore) : value}));
+  };
+  const setActiveShoppingRequestId: Dispatch<SetStateAction<string | null>> = (value) => {
+      setState(prevState => ({...prevState, activeShoppingRequestId: typeof value === 'function' ? value(prevState.activeShoppingRequestId) : value}));
+  };
+  const setShoppingTaskResult: Dispatch<SetStateAction<OrchestratorResult | null>> = (value) => {
+      setState(prevState => ({...prevState, shoppingTaskResult: typeof value === 'function' ? value(prevState.shoppingTaskResult) : value}));
+  };
+
 
   return (
     <MealPlanContext.Provider value={{
-      selectedMeals,
+      ...state,
       addMeal,
       removeMeal,
-      shoppingList,
       updateShoppingListItemChecked,
       toggleGroupChecked,
       addExtraItem,
       removeExtraItem,
-      selectedStore,
       setSelectedStore,
-      deliveryTime,
       setDeliveryTime,
-      deliveryAddress,
       setDeliveryAddress,
-      isOrderComplete,
       completeOrder,
       resetOrder,
-      activeShoppingRequestId,
       setActiveShoppingRequestId,
-      shoppingTaskResult,
       setShoppingTaskResult,
     }}>
       {children}

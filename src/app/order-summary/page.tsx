@@ -1,7 +1,7 @@
 // src/app/order-summary/page.tsx (Final Shopping List)
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useMealPlan } from '@/context/meal-plan-context';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,26 @@ import type { ShoppingListItem } from '@/context/meal-plan-context';
 import { useToast } from '@/hooks/use-toast';
 import type { Meal } from '@/types/meal';
 
+// Function to convert numbers to mathematical bold
+const toBold = (str: string) => {
+  const boldNumbers: { [key: string]: string } = {
+    '0': '𝟬', '1': '𝟭', '2': '𝟮', '3': '𝟯', '4': '𝟰',
+    '5': '𝟱', '6': '𝟲', '7': '𝟳', '8': '𝟴', '9': '𝟵'
+  };
+  return str.replace(/[0-9]/g, (char) => boldNumbers[char] || char);
+};
+
 export default function FinalShoppingListPage() {
   const { shoppingList = [], selectedMeals = [] } = useMealPlan();
   const { toast } = useToast();
   const [clickedItems, setClickedItems] = useState<string[]>([]);
+  const [origin, setOrigin] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setOrigin(window.location.origin);
+    }
+  }, []);
 
   const checkedItems = useMemo(() => shoppingList.filter(item => item.checked), [shoppingList]);
 
@@ -62,49 +78,42 @@ export default function FinalShoppingListPage() {
   };
 
   const handleShare = async () => {
-    if (typeof navigator.share === 'undefined') {
+    if (typeof navigator.share === 'undefined' || !origin) {
       toast({
         title: "Sharing Not Supported",
-        description: "Your browser does not support the Web Share API. You can manually copy the text.",
+        description: "Your browser does not support the Web Share API.",
         variant: "destructive"
       });
       return;
     }
-
-    let shareText = "My proti Shopping List & Recipes:\n\n";
     
-    const mealVideoLinks = new Map<string, string>();
+    let shareText = "Check out my high-protein meal plan from proti:\n\n";
 
-    sortedGroupKeys.forEach(groupName => {
-      shareText += `--- ${groupName} ---\n`;
-      groupedCheckedItems[groupName].forEach(item => {
-        shareText += `- ${item.name} (${item.quantity})\n`;
-        // Find the meal and store its video URL if it exists
-        if (item.mealId && item.mealId !== 'extra' && item.mealId !== 'seasonings_condiments') {
-          const meal = selectedMeals.find(m => m.id === item.mealId);
-          if (meal?.videoUrl && !mealVideoLinks.has(meal.name)) {
-            mealVideoLinks.set(meal.name, meal.videoUrl);
-          }
-        }
-      });
-      shareText += "\n";
-    });
+    // Create a unique set of meals from the checked items
+    const mealsToShare = selectedMeals.filter(meal => 
+      checkedItems.some(item => item.mealId === meal.id)
+    );
 
-    if (mealVideoLinks.size > 0) {
-      shareText += "--- Recipe Videos ---\n";
-      mealVideoLinks.forEach((url, name) => {
-        shareText += `${name}: ${url}\n`;
+    if (mealsToShare.length === 0) {
+       toast({
+        title: "No Meals to Share",
+        description: "Your selected items don't belong to any specific meal. Share a meal to see it here!",
       });
+      return;
     }
+
+    mealsToShare.forEach(meal => {
+      const shareUrl = `${origin}/share/${meal.id}`;
+      shareText += `- ${meal.name}: ${shareUrl}\n`;
+    });
 
     try {
       await navigator.share({
-        title: 'My proti',
+        title: 'My proti Meal Plan',
         text: shareText,
       });
       toast({ title: "Shared successfully!" });
     } catch (error) {
-      // Don't show an error toast if the user cancels the share dialog
       if (error instanceof Error && error.name !== 'AbortError') {
         toast({
           title: "Sharing Failed",
@@ -154,8 +163,8 @@ export default function FinalShoppingListPage() {
                 {groupedCheckedItems[groupName].map((item, idx) => {
                   const itemId = item.id || `${groupName}-${idx}`;
                   const isClicked = clickedItems.includes(itemId);
-                  const searchQuery = encodeURIComponent(`${item.name} ${item.quantity}`);
-                  const shoppingUrl = `https://www.coles.com.au/search/products?q=${searchQuery}`;
+                  const searchQuery = encodeURIComponent(toBold(`${item.name} ${item.quantity}`));
+                  const shoppingUrl = `https://www.woolworths.com.au/shop/search/products?searchTerm=${searchQuery}`;
 
                   return (
                     <li key={itemId} className="flex items-center justify-between p-2 rounded-md bg-secondary/30">

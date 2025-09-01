@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { ListChecks, Blend, PackagePlus, Utensils, CheckSquare } from 'lucide-react';
+import { ListChecks, Blend, PackagePlus, Utensils, CheckSquare, Trash2 } from 'lucide-react';
 import type { ShoppingListItem } from '@/context/meal-plan-context';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -23,6 +23,7 @@ export default function ShoppingListPage() {
     removeExtraItem,
     extraShoppingItems = [],
     toggleGroupChecked,
+    removeMeal,
   } = useMealPlan();
   const { toast } = useToast();
   const router = useRouter();
@@ -113,7 +114,11 @@ export default function ShoppingListPage() {
               <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5 text-primary"/>Confirm Your Items</CardTitle>
             </CardHeader>
             <CardContent>
-              {sortedGroupKeys.map((groupName, groupIndex) => (
+              {sortedGroupKeys.map((groupName, groupIndex) => {
+                const mealId = getMealIdForGroupName(groupName);
+                const isMealGroup = mealId !== 'extra' && mealId !== 'seasonings_condiments';
+                
+                return (
                   <div key={groupName} className="mb-6 last:mb-0">
                     <div className="flex justify-between items-center mb-3">
                         <h3 className="text-lg font-semibold flex items-center">
@@ -122,10 +127,25 @@ export default function ShoppingListPage() {
                             <Utensils className="mr-2 h-5 w-5 text-primary" />}
                            {groupName}
                         </h3>
-                        <Button variant="outline" size="sm" onClick={() => toggleGroupChecked(getMealIdForGroupName(groupName))}>
-                            <CheckSquare className="mr-2 h-4 w-4" />
-                            Select All
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" onClick={() => toggleGroupChecked(mealId)}>
+                              <CheckSquare className="mr-2 h-4 w-4" />
+                              Select All
+                          </Button>
+                          {isMealGroup && (
+                            <Button 
+                              variant="destructive" 
+                              size="icon" 
+                              onClick={() => {
+                                removeMeal(mealId);
+                                toast({ title: `${groupName} removed from your list.` });
+                              }}
+                              aria-label={`Remove ${groupName}`}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                     </div>
                     <ul className="space-y-3">
                       {groupedList[groupName].map((item) => (
@@ -150,7 +170,8 @@ export default function ShoppingListPage() {
                     </ul>
                     {groupIndex < sortedGroupKeys.length - 1 && <Separator className="my-4" />}
                   </div>
-                ))}
+                )
+              })}
             </CardContent>
           </Card>
 
